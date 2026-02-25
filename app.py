@@ -206,7 +206,9 @@ def tab_analysis(conn: sqlite3.Connection) -> None:
     if not trend.empty:
         trend["rank"] = trend.groupby("species").cumcount()
         pivot = trend.pivot_table(index="species", columns="rank", values=metric, aggfunc="first")
-        pivot["diff_vs_prev"] = pivot.get(1, 0).fillna(0) - pivot.get(0, 0).fillna(0)
+        prev_vals = pivot[0] if 0 in pivot.columns else pd.Series(0, index=pivot.index)
+        latest_vals = pivot[1] if 1 in pivot.columns else prev_vals
+        pivot["diff_vs_prev"] = latest_vals.fillna(0) - prev_vals.fillna(0)
         pivot = pivot.reset_index()[["species", "diff_vs_prev"]]
         st.plotly_chart(px.bar(pivot, x="species", y="diff_vs_prev", title="Verschil t.o.v. vorige meting"), use_container_width=True)
 
