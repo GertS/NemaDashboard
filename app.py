@@ -217,6 +217,66 @@ def tab_analysis(conn: sqlite3.Connection) -> None:
     csv_bytes = timeline.to_csv(index=False).encode("utf-8")
     st.download_button("Download CSV", data=csv_bytes, file_name="analyse_data.csv", mime="text/csv")
 
+    st.markdown("---")
+    st.markdown("### Percelen ranking per jaar")
+    st.caption("Kies een jaar en soort om percelen van hoog naar laag te vergelijken.")
+
+    ranking_source = merged[merged["analysis_type"] == analysis_type].copy()
+    ranking_source["report_date_dt"] = pd.to_datetime(ranking_source["report_date"], errors="coerce")
+    ranking_source["year"] = ranking_source["report_date_dt"].dt.year
+    ranking_source = ranking_source.dropna(subset=["field_display", "species", "year"])
+
+    if ranking_source.empty:
+        st.info("Geen data beschikbaar voor ranking per jaar.")
+        return
+
+    years = sorted(ranking_source["year"].astype(int).unique())
+    selected_year = st.selectbox("Jaar", options=years, index=len(years) - 1)
+
+    species_by_year = sorted(
+        ranking_source[ranking_source["year"] == selected_year]["species"].dropna().unique()
+    )
+    if not species_by_year:
+        st.info("Geen soorten beschikbaar voor het gekozen jaar.")
+        return
+
+    selected_species = st.selectbox("Soort", options=species_by_year, key="ranking_species")
+    ranking_metric = metric
+    if analysis_type == "cysteaaltjes":
+        ranking_metric = st.radio(
+            "Ranking op",
+            options=["cysts", "lle"],
+            horizontal=True,
+            key="ranking_cyst_metric",
+        )
+
+    ranking_df = (
+        ranking_source[
+            (ranking_source["year"] == selected_year)
+            & (ranking_source["species"] == selected_species)
+        ]
+        .groupby("field_display", as_index=False)[ranking_metric]
+        .sum()
+        .sort_values(ranking_metric, ascending=False)
+    )
+
+    if ranking_df.empty:
+        st.info("Geen percelen gevonden voor deze combinatie van jaar en soort.")
+        return
+
+    ranking_df["rang"] = range(1, len(ranking_df) + 1)
+    ranking_fig = px.bar(
+        ranking_df,
+        x="field_display",
+        y=ranking_metric,
+        text="rang",
+        title=f"Percelen ranking ({selected_year}) - {selected_species}",
+        labels={"field_display": "Perceel", ranking_metric: "Uitslag"},
+    )
+    ranking_fig.update_layout(xaxis_tickangle=-45)
+    st.plotly_chart(ranking_fig, use_container_width=True)
+    st.dataframe(ranking_df[["rang", "field_display", ranking_metric]], use_container_width=True)
+
 
 def tab_export(conn: sqlite3.Connection) -> None:
     st.subheader("Export")
