@@ -179,13 +179,14 @@ def tab_analysis(conn: sqlite3.Connection) -> None:
         metric = st.radio("Y-as voor cysteaaltjes", options=["cysts", "lle"], horizontal=True)
 
     timeline = sub.sort_values(["report_date_dt", "report_date"])
+    timeline_plot = timeline.drop(columns=["sample_id"], errors="ignore")
     fig = px.line(
-        timeline,
+        timeline_plot,
         x="report_date",
         y=metric,
         color="species",
         markers=True,
-        hover_data={"infection_class": True, "sample_id": False, "unit": True},
+        hover_data={"infection_class": True, "unit": True},
         title="Tijdlijn per species",
     )
     st.plotly_chart(fig, use_container_width=True)
