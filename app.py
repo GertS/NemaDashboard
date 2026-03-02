@@ -185,7 +185,7 @@ def tab_analysis(conn: sqlite3.Connection) -> None:
         y=metric,
         color="species",
         markers=True,
-        hover_data=["infection_class", "sample_id", "unit"],
+        hover_data={"infection_class": True, "sample_id": False, "unit": True},
         title="Tijdlijn per species",
     )
     st.plotly_chart(fig, use_container_width=True)

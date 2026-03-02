@@ -177,6 +177,14 @@ def sanitize_species(s: str) -> str:
     return normalize_whitespace(s)
 
 
+def strip_category_prefix(species: str) -> str:
+    lowered = species.lower()
+    for label in CATEGORY_LABELS:
+        if lowered.startswith(f"{label} "):
+            return species[len(label) :].strip()
+    return species
+
+
 def parse_vrije_aaltjes(text: str) -> List[ParsedResult]:
     lines = [normalize_whitespace(l) for l in text.splitlines() if normalize_whitespace(l)]
     start = None
@@ -196,14 +204,13 @@ def parse_vrije_aaltjes(text: str) -> List[ParsedResult]:
     for line in lines[start:end]:
         if re.search(r"aantallen\s+per\s+100\s*gram", line, re.IGNORECASE):
             continue
-        m = re.match(r"(.+?)\s+(-?\d+)\s*$", line)
+        if re.search(r"aantallen\s+per\s+100\s*(ml|gram)", line, re.IGNORECASE):
+            continue
+        m = re.match(r"(.+?)\s+(-?\d+)(?:\s*\*+)?\s*$", line)
         if not m:
             continue
-        species = sanitize_species(m.group(1))
-        if species.lower() in CATEGORY_LABELS:
-            continue
-        if species.lower().startswith("cysteaaltjes"):
-            # indicator row in vrijlevende list; ignore
+        species = strip_category_prefix(sanitize_species(m.group(1)))
+        if species.lower() in CATEGORY_LABELS and species.lower() != "cysteaaltjes":
             continue
         value = parse_int(m.group(2))
         if not species or value is None:
@@ -460,14 +467,18 @@ def self_test() -> None:
     test_text = """
     Vrijlevende aaltjes
     Pratylenchus penetrans 120
+    Stengelaaltjes Ditylenchus spp. 7 *
     Cysteaaltjes 0 *
     Cysteaaltjes aantal cysten aantal lle besmettingsgraad
     Aardappelcysteaaltjes 2 15 licht besmet
     """
     vrij = parse_vrije_aaltjes(test_text)
     cys = parse_cysteaaltjes(test_text)
-    assert len(vrij) == 1, "Vrijlevende parser should ignore Cysteaaltjes indicator row"
-    assert vrij[0].species.lower().startswith("pratylenchus"), "Species parse mismatch"
+    vrij_species = {r.species.lower() for r in vrij}
+    assert len(vrij) == 3, "Vrijlevende parser should include indicative rows with optional asterisk"
+    assert "pratylenchus penetrans" in vrij_species, "Species parse mismatch"
+    assert "ditylenchus spp." in vrij_species, "Category prefix should be stripped from species"
+    assert "cysteaaltjes" in vrij_species, "Cysteaaltjes from indicatieve analyse should be retained"
     assert len(cys) == 1 and cys[0].lle == 15, "Cysteaaltjes parser mismatch"
     assert date_to_iso("5 maart 2024") == "2024-03-05", "Dutch date parsing failed"
     print("Self-test passed")
