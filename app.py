@@ -171,7 +171,8 @@ def tab_analysis(conn: sqlite3.Connection) -> None:
             sub = sub[(sub["report_date_dt"].isna()) | ((sub["report_date_dt"] >= start) & (sub["report_date_dt"] <= end))]
 
     species_options = sorted(sub["species"].dropna().unique())
-    species_selected = st.multiselect("Species", options=species_options, default=species_options)
+    default_species = [s for s in species_options if "monsternummer" not in str(s).lower()]
+    species_selected = st.multiselect("Species", options=species_options, default=default_species)
     sub = sub[sub["species"].isin(species_selected)]
 
     metric = "value"
