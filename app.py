@@ -171,7 +171,8 @@ def tab_analysis(conn: sqlite3.Connection) -> None:
             sub = sub[(sub["report_date_dt"].isna()) | ((sub["report_date_dt"] >= start) & (sub["report_date_dt"] <= end))]
 
     species_options = sorted(sub["species"].dropna().unique())
-    species_selected = st.multiselect("Species", options=species_options, default=species_options)
+    default_species = [s for s in species_options if "monsternummer" not in str(s).lower()]
+    species_selected = st.multiselect("Species", options=species_options, default=default_species)
     sub = sub[sub["species"].isin(species_selected)]
 
     metric = "value"
@@ -179,13 +180,14 @@ def tab_analysis(conn: sqlite3.Connection) -> None:
         metric = st.radio("Y-as voor cysteaaltjes", options=["cysts", "lle"], horizontal=True)
 
     timeline = sub.sort_values(["report_date_dt", "report_date"])
+    timeline_plot = timeline.drop(columns=["sample_id"], errors="ignore")
     fig = px.line(
-        timeline,
+        timeline_plot,
         x="report_date",
         y=metric,
         color="species",
         markers=True,
-        hover_data=["infection_class", "sample_id", "unit"],
+        hover_data={"infection_class": True, "unit": True},
         title="Tijdlijn per species",
     )
     st.plotly_chart(fig, use_container_width=True)
